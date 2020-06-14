@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Awale Game</title>
+    <link rel="stylesheet" href="./assets/css/font-awesome.min.css">
+    <link rel="stylesheet" href="./assets/css/element-ui.css">
+    <link rel="stylesheet" href="./assets/css/styles.css">
+</head>
+
+<body>
+    <div id='app'>
+        <div class="app-header">
+            Awale Game
+        </div>
+        <div class="app-main">
+            <div v-if="!game_type" class="menu-main">
+                <div class="menu-main__title">Play now the original Awale game for free</div>
+                <div class="menu-main__description">
+                    Awale is one of the most ancient strategy games still played. The Masai say that the Awale was invented by Sindillo, the
+                    son of the first man, Maitoumbe, and was originally called geshe. This fascinating African game (also
+                    known as Awele, Oware, Wari, ...) has been very attractively adapted as a web game.
+                    <br> Play human vs human, against the computer or look two bots playing against each others.
+                </div>
+                <span @click="help_dialog_visible = true" class="clickable">Check the rules</span>
+                <div class="menu-main__button">
+                    <el-button @click="playBtnClick" type="primary" class="el-button--giant">Play now !</el-button>
+                </div>
+            </div>
+            <transition name="el-fade-in-linear">
+                <div v-if="game_type" class="game-main">
+                    <div class="game-main__help">
+                        <span @click="help_dialog_visible = true" >Need some help ?</span>
+                        <span>{{ pretty_time }}</span>
+                        <span @click="handleLeaveGame">Leave the game</span>
+                    </div>
+                    <div v-for="(line, line_index) in lines" :key="'line_' + line_index" class="game-main__line">
+                        <div class="line-header">
+                            <div v-if="line.player.difficulty" class="line-header__difficulty">{{ line.player.difficulty }}</div>
+                            <div class="line-header__player">{{ line.player.label }}</div>
+                            <div class="line-header__score">{{ line.score }}</div>
+                        </div>
+                        <div class="line-main">
+                            <div v-for="(column, column_index) in line.columns" :id="getRealIndex(column_index, line_index)" :key="'column_' + column_index" @click="clickColumn(column_index, line_index)"
+                                :class="{ 'clickable' : clickable(column_index, line_index)}" class="line-main__column">
+                                <div class="column-count">{{ column.seeds }}</div>
+                                <div class="column-circle"></div>
+                                <div class="column-debug" v-if="debug">{{ column.real_index }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-if="game_info" class="game-main__info">{{ game_info }}</div>
+                </div>
+            </transition>
+        </div>
+        <div class="app-footer">
+            <span>&copy; Pierre 2018</span> 
+        </div>
+        <el-dialog title="End of the game" :visible.sync="over_dialog_visible" :close-on-click-modal="false" :close-on-press-escape="false"
+            :show-close="false" width="30%">
+            <div class="over-dialog-main">
+                <div class="over-dialog-main__result">
+                    <div v-if="checkLineEmpty(1)">
+                        <div>{{ players[0].label }} win, score : {{ scores[0] }}</div>
+                        <div>{{ players[1].label }} loose, score : {{ scores[1] }}</div>
+                    </div>
+                    <div v-else-if="checkLineEmpty(0)">
+                        <div>{{ players[1].label }} win, score : {{ scores[1] }}</div>
+                        <div>{{ players[0].label }} loose, score : {{ scores[0] }}</div>
+                    </div>
+                    <div>Game time : {{ pretty_time }}</div>
+                    <div>Total round : {{ round_count }}</div>
+                </div>
+                <el-button @click="restartGame">Restart</el-button>
+                <el-button @click="leaveGame">Leave</el-button>
+            </div>
+        </el-dialog>
+        <el-dialog v-if="menu_step" :title="menu_step.title" :visible.sync="start_dialog_visible" width="30%">
+            <div class="start-dialog-main" v-if="menu_step.id === 'game-type'">
+                <el-button @click="startGame('HumanVsHuman')">Human vs Human</el-button>
+                <el-button @click="menu_step = menu_steps[1]">Human vs Bot</el-button>
+                <el-button @click="menu_step = menu_steps[2]">Bot vs Bot</el-button>
+            </div>
+            <div class="start-dialog-main" v-if="menu_step.id === 'difficulty-human-ia'">
+                <el-button @click="startGame('HumanVsBot', 'easy')">Easy</el-button>
+                <el-button @click="startGame('HumanVsBot', 'medium')">Medium</el-button>
+                <el-button @click="startGame('HumanVsBot', 'hard')">Hard</el-button>
+            </div>
+            <div class="start-dialog-main" v-if="menu_step.id === 'difficulty-ia-ia'">
+                <el-button @click="startGame('BotVsBot', 'easy', 'easy')">Easy - Easy</el-button>
+                <el-button @click="startGame('BotVsBot', 'easy', 'medium')">Easy - Medium</el-button>
+                <el-button @click="startGame('BotVsBot', 'medium', 'medium')">Medium - Medium</el-button>
+                <el-button @click="startGame('BotVsBot', 'medium', 'hard')">Medium - Hard</el-button>
+                <el-button @click="startGame('BotVsBot', 'hard', 'hard')">Hard - Hard</el-button>
+                <el-button @click="startGame('BotVsBot', 'easy', 'hard')">Easy - Hard</el-button>
+            </div>        
+        </el-dialog>
+        <el-dialog title="Awale rules" :visible.sync="help_dialog_visible" width="50%">
+            <div class="help-dialog-main">
+                The rules of Awale are very simple, and the game is easy to understand.
+                <br> On the other hand, the strategies to be successfull can be complex and subtle.
+                <br>
+                <br> The rules vary from one region to another, even sometimes from one village to another...<br> 
+                We'll use here the most common rule, the Classical Awale.
+                <br>
+                <br>
+                <b>Rule 1 : Aim of the game</b>
+                <br> The aim of the game is to capture more seeds than your opponent. At the end of the game, the player who
+                has captured the most seeds wins.
+                <br>
+                <br>
+                <b>Rule 2 : The board</b>
+                <br> The board is divided into two areas, hollowed with six holes each. Your area is at the bottom of the screen,
+                your opponent's (computer) area is at the top. At the begining, 48 seeds are distributed among the 12 holes
+                (four seeds in each hole).
+                <br>
+                <br>
+                <b>Rule 3 : The game turn.</b>
+                <br> Every player plays alernately, the first one to play is chosen at random. The player takes all the seeds
+                in a hole of his area and distributes them counterclockwise, one in each hole.
+                <br>
+                <br>
+                <b>Rule 4 : Capture</b>
+                <br> If the last seed to be distributed falls into one of the opponent's holes, containing already one or two
+                seeds, the player captures the two or three seeds. The captured seeds are taken off the board (the hole is
+                left empty) and collected into the player's loft.
+                <br>
+                <br>
+                <b>Rule 5 : Multiple capture</b>
+                <br> If a player captures two or three seeds, and the preceeding hole also contains two or three seeds, they
+                are captured too, and so on...
+                <br>
+                <br>
+                <b>Rule 6 : Loop </b>
+                <br> If the number of seeds taken in the starting hole is greater than 11, it constitutes a loop : the starting
+                hole is left out everytime in the distribution loop, and therefore always left empty. A hole containing enough
+                seeds to loop is called a 'Kroo'.
+                <br>
+                <br>
+                <b>Rule 7 : Feed the opponent</b>
+                <br> A player isn't allowed to "starve" his opponent : a player can't play a hole that leads to capturing all
+                the seeds in his opponent's area.
+                <br>
+                <br>
+                <b>Rule 8 : End of the game</b>
+                <br> The game ends if :
+                <ul>
+                    <li>
+                        A player hasn't any seeds in his area, and therefore can't play.
+                        <br> In this case, the other player captures all the remaining seeds.
+                    </li>
+                    <li>
+                        The game is "looping", i.e. after some turns, the same playboard configuration is obtained again.
+                        <br> In this case, the remaining seeds aren't captured.
+                    </li>
+                    <li>
+                        One of the players aborts the game
+                        <br> The other player captures all the remaining seeds.
+                    </li>
+                </ul>
+                <br>
+                <br>
+                <span class="help-dialog-main__citation">
+                    "If all seeds that fall were to grow, then no one could follow the path under the trees"
+                    <br> (Akan proverb)
+                </span>
+            </div>
+        </el-dialog>
+    </div>
+</body>
+
+<script src="./assets/js/vue.js"></script>
+<script src="./assets/js/element-ui.js"></script>
+<script>
+    function getRandomInt(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+    new Vue({
+        el: '#app',
+        data() {
+            return {		
+                time: 0,
+		        timer: null,
+                menu_step: null,
+                menu_steps: [
+                    { id: 'game-type', title : 'Select a game type'},
+                    { id: 'difficulty-human-ia', title : 'Choose a difficulty'},
+                    { id: 'difficulty-ia-ia', title : 'Choose a difficulty'}
+                ],
+                game_type: null,
+                start_dialog_visible: false,
+                help_dialog_visible: false,
+                over_dialog_visible: false,
+                round: null,
+                round_count: 0,
+                board: [],
+                players: [
+                    {
+                        label: '',
+                        is_bot: false,
+                        difficulty: null
+                    },
+                    {
+                        label: '',
+                        is_bot: false,
+                        difficulty: null
+                    }
+                ],
+                scores: [0, 0],
+                is_game_loading: false,
+                debug : true
+            }
+        },
+        computed: {
+            game_info() {
+                switch (this.game_type) {
+                    case 'HumanVsHuman':
+                    case 'BotVsBot':
+                        return `It's ${this.players[this.round].label} turn !`;
+                        break;
+                    case 'HumanVsBot':
+                        if (this.round === 1) {
+                            return "It's your turn !";
+                        } else if (this.round === 0) {
+                            return "Waiting for opponent ...";
+                        }
+                        break;
+                }
+            },
+            board_top() {
+                return this.board.filter((item, index) => {
+                    return (index < 6);
+                });
+            },
+            board_bottom() {
+                return this.board.filter((item, index) => {
+                    return (index >= 6);
+                }).reverse();
+            },
+            my_board(){
+                return this.round === 0 ? this.board_top : this.board_bottom;
+            },
+            oppo_board(){
+                return this.round === 0 ? this.board_bottom : this.board_top;
+            },
+            oppo_round(){
+                return this.round === 0 ? 1 : 0;
+            },
+            pretty_time () {
+                let sec_num = parseInt(this.time, 10);
+                let hours   = Math.floor(sec_num / 3600);
+                let minutes = Math.floor((sec_num - (hours * 3600)) / 60);
+                let seconds = sec_num - (hours * 3600) - (minutes * 60);
+
+                if (hours   < 10) {hours   = "0"+hours;}
+                if (minutes < 10) {minutes = "0"+minutes;}
+                if (seconds < 10) {seconds = "0"+seconds;}
+                return hours > 0 ? hours+'h'+minutes+'min'+seconds+'s' : +minutes+'min'+seconds+'s';
+            },
+            lines() {
+                let column1 = this.board_top.map((item, index) => {
+                    return {
+                        seeds: item,
+                        real_index: this.getRealIndex(index, 0)
+                    }
+                });
+                let column2 = this.board_bottom.map((item, index) => {
+                    return {
+                        seeds: item,
+                        real_index: this.getRealIndex(index, 1)
+                    }
+                });
+                return [
+                    {
+                        player: this.players[0],
+                        score: this.scores[0],
+                        columns: column1
+                    },
+                    {
+                        player: this.players[1],
+                        score: this.scores[1],
+                        columns: column2
+                    }
+                ]
+            }
+        },
+        methods: {
+            playBtnClick(){
+                this.menu_step = this.menu_steps[0];
+                this.start_dialog_visible = true;
+            },
+            debugboard(board){
+                let top = board.filter((item, index) => {
+                    return (index < 6);
+                });
+                let bottom = board.filter((item, index) => {
+                    return (index >= 6);
+                }).reverse();
+                let render = {
+                    a_top : top,
+                    b_bottom : bottom
+                }
+                console.info(render);
+            },
+            getBoard(board, round){
+                if (round === 0){
+                    return board.filter((item, index) => {
+                        return (index < 6);
+                    });
+                }else{
+                    return board.filter((item, index) => {
+                        return (index >= 6);
+                    }).reverse();
+                }
+            },
+            botRandomRound(){
+                let founded = false;
+                while (!founded) {
+                    let random_column = getRandomInt(0, 5);
+                    let real_index = this.getRealIndex(random_column, this.round);
+                    if (this.board[real_index] > 0){
+                        return real_index;
+                        founded = true;
+                    }
+                }
+            },
+            getCaseRecurs(mode, board, profondeur, n = 0){
+                // On boucle pour i de 0 a 6
+                 for (let i = 0; i < 6; i++){
+                    // On copie la board reçu
+                    let board_1 = board.slice(0);
+                    // Renvoie la case de notre board correspondant au i de la boucle de notre joueur ou du joueur adverssaire si on est en mode defense
+                    let real_index_1 = mode === 'attack' ? this.getRealIndex(i, this.round) : this.getRealIndex(i, this.oppo_round);;
+                    // Verifie que la case en question n'est pas vide
+                    if (board_1[real_index_1] > 0){
+                        // On simule le jeu ( vide la case et distribue les graines )
+                        let seeds_count_1 = board_1[real_index_1];
+                        let original_column_1 = real_index_1;
+                        let loop_column_1 = real_index_1;
+                        board_1[real_index_1] = 0;
+                        while (seeds_count_1 > 0 ){
+                            if (loop_column_1 <= 0) {
+                                loop_column_1 = 11;
+                            } else {
+                                loop_column_1--;
+                            }
+                            if (original_column_1 != loop_column_1){
+                                board_1[loop_column_1]++;
+                                seeds_count_1--; 
+                            }
+                        }
+                        // Si la profondeur est atteinte
+                        if (profondeur === n){
+                            // Que le mode est attaque
+                            if (mode === 'attack'){
+                                // Si la derniere graine distribué tombe sur une case adverssaire possedant 2 ou 3 graines alors on va retourner la case que l'on simuler
+                                if ( !this.indexIsMine(loop_column_1) && this.board[real_index_1] > 0 && (board_1[loop_column_1] === 2 || board_1[loop_column_1] === 3)){
+                                    console.log("Attack prodondeur", profondeur)
+                                    return real_index_1;
+                                }
+                            }else{
+                                // Si derniere graine distribué de l'adverssaire tombe sur une de nos case possedant 2 ou 3 alors on va retourner cette case pour ainsi contrer l'attaque
+                                if ( this.indexIsMine(loop_column_1) && this.board[loop_column_1] > 0 && (board_1[loop_column_1] === 2 || board_1[loop_column_1] === 3)){
+                                    console.log("Defense profondeur", profondeur);
+                                    return loop_column_1;
+                                }
+                            }
+                        } else{
+                            // On a pase encore atteint la profondeur on va boucler une deuxieme fois pour le tour suivant
+                            for (let j = 0; j < 6; j++){
+                                // On copie la board précedente
+                                let board_2 = board_1.slice(0);
+                                // Renvoie la case de notre board correspondant au j de la boucle de notre joueur ou du joueur adverssaire si on est en mode defense
+                                let real_index_2 = mode === 'attack' ? this.getRealIndex(j, this.oppo_round) : this.getRealIndex(j, this.round);
+                                if (board_2[real_index_2] > 0){
+                                     // On simule le jeu ( vide la case et distribue les graines )
+                                    let seeds_count_2 = board_2[real_index_2];
+                                    let original_column_2 = real_index_2;
+                                    let loop_column_2 = real_index_2;
+                                    board_2[real_index_2] = 0;
+                                    while (seeds_count_2 > 0 ){
+                                        if (loop_column_2 <= 0) {
+                                            loop_column_2 = 11;
+                                        } else {
+                                            loop_column_2--;
+                                        }
+                                        if (original_column_2 != loop_column_2){
+                                            board_2[loop_column_2]++;
+                                            seeds_count_2--; 
+                                        }
+                                    }
+                                    // On peu ensuite recommencer avec une profondeur au dessus et avec notre nouvelle board
+                                    return this.getCaseRecurs(mode, board_2, profondeur, n+1);
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            botEasyRound(){
+                // Cherche si on peut récuperer une case avec la strategie attack avec une profondeur de 0
+                let my_attack = this.getCaseRecurs('attack', this.board, 0);
+                if (my_attack){
+                    // Si oui on la retourne
+                    return my_attack;
+                }
+                // Sinon retourne une case aleatoire
+                return this.botRandomRound();
+            },
+            botMediumRound(){
+                // Cherche si on peut récuperer une case avec la strategie attack avec une profondeur de 0
+                let my_attack = this.getCaseRecurs('attack', this.board, 0);
+                if (my_attack){
+                    // Si oui on la retourne
+                    return my_attack;
+                }
+                // Sinon on cherche si on peut récuperer une case avec la strategie defense avec une profondeur de 0
+                let my_defense = this.getCaseRecurs('defense', this.board, 0);
+                if (my_defense){
+                    return my_defense;
+                }
+                // Sinon retourne une case aleatoire
+                return this.botRandomRound();
+            },
+            botHardRound(){
+                // Cherche si on peut récuperer une case avec la strategie attack avec une profondeur de 1
+                let my_attack = this.getCaseRecurs('attack', this.board, 0);
+                if (my_attack){
+                    return my_attack;
+                }
+                // Sinon on cherche si on peut récuperer une case avec la strategie defense avec une profondeur de 0
+                let my_defense = this.getCaseRecurs('defense', this.board, 0);
+                if (my_defense){
+                    return my_defense;
+                }
+                // Sinon on cherche si on peut récuperer une case avec la strategie attack avec une profondeur de 1
+                my_attack = this.getCaseRecurs('attack', this.board, 1);
+                if (my_attack){
+                    return my_attack;
+                }
+                // Sinon on cherche si on peut récuperer une case avec la strategie defense avec une profondeur de 0
+                my_defense = this.getCaseRecurs('defense', this.board, 1);
+                if (my_defense){
+                    return my_defense;
+                }
+                // Sinon retourne une case aleatoire
+                return this.botRandomRound();
+            },
+            botPlay(difficulty) {
+                setTimeout( _ => {
+                    let real_index = null;
+                    switch(difficulty){
+                        case 'easy':
+                            real_index = this.botEasyRound();
+                            break;
+                        case 'medium':
+                            real_index = this.botMediumRound();
+                            break;
+                        case 'hard':
+                            real_index = this.botHardRound();
+                            break;
+                    }
+                    if (real_index == null){
+                        real_index = this.botRandomRound();
+                    }
+                    this.takeSeed(real_index);
+                }, 1000);
+            },
+            clickColumn(column_index, line_index){
+                if (this.clickable(column_index, line_index)) {
+                    let real_index = this.getRealIndex(column_index, line_index);
+                    this.takeSeed(real_index);
+                }
+            },
+            clickable(column_index, line_index) {
+                let real_index = this.getRealIndex(column_index, line_index);
+                switch (this.game_type) {
+                    case 'HumanVsHuman':
+                        return this.board[real_index] > 0 && !this.is_game_loading && this.round === line_index;
+                    case 'HumanVsBot':
+                        return this.board[real_index] > 0 && !this.is_game_loading && line_index === 1 && this.round === line_index;
+                    case 'BotVsBot':
+                        return false;
+                }
+            },
+            checkGameOver(){
+               return this.checkLineEmpty(0) || this.checkLineEmpty(1); 
+            },
+            checkLineEmpty(line_index) {
+                let line = [];
+                if (line_index === 0) {
+                    line = this.board_top;
+                } else {
+                    line = this.board_bottom;
+                }
+                return !line.some(item => {
+                    return item > 0;
+                });
+            },
+            indexIsMine(real_index){
+                return (real_index > 5 && this.round === 1) || (real_index <= 5 && this.round === 0);
+            },
+            canBeReversed(real_index){
+                return !this.indexIsMine(real_index) && (this.board[real_index] === 2 || this.board[real_index] === 3);
+            },
+            reverseLoopColumn(loop_column, original_column){
+                this.is_game_loading = true;
+                if (this.canBeReversed(loop_column)){
+                    // Animation
+                    let column_div = document.getElementById(loop_column);
+                    let circle_div = column_div.children[1];
+                    circle_div.style.background = 'rgba(255, 255, 255, 0.1)';
+                    setTimeout( _ => {
+                        this.scores[this.round] += this.board[loop_column];
+                        Vue.set(this.board, loop_column, 0);
+                        loop_column++;
+                        this.reverseLoopColumn(loop_column);
+                        // Animation over
+                        circle_div.style.background = 'rgba(0, 0, 0, 0.3)';
+                    }, 300);   
+                }else{
+                    this.is_game_loading = false;
+                    this.nextRound();
+                }
+            },
+            loopColumn(seeds_count, loop_column, original_column) {
+                this.is_game_loading = true;
+                if (seeds_count > 0) {
+                    setTimeout( _ => {
+                        if (loop_column <= 0) {
+                            loop_column = 11;
+                        } else {
+                            loop_column--;
+                        }
+                        if (original_column !== loop_column){
+                            Vue.set(this.board, loop_column, this.board[loop_column] + 1);
+                            seeds_count--;                        
+                        }
+                        if (seeds_count === 0 && (this.canBeReversed(loop_column))){
+                            this.reverseLoopColumn(loop_column);
+                        }else{
+                            this.loopColumn(seeds_count, loop_column, original_column);
+                        }
+                    }, 300);    
+                } else {
+                    this.is_game_loading = false;
+                    this.nextRound();
+                }
+            },
+            takeSeed(real_index) {
+                console.log(this.players[this.round].label + " play : " + real_index);
+                console.log("__________");
+                let seeds_count = this.board[real_index];
+                Vue.set(this.board, real_index, 0);
+                this.loopColumn(seeds_count, real_index, real_index);
+            },
+            nextRound() {
+                this.round_count++;
+                this.round = this.round === 1 ? 0 : 1;
+                if (!this.checkGameOver()) {
+                    if (this.players[this.round].is_bot) {
+                        this.botPlay(this.players[this.round].difficulty);
+                    }
+                } else {
+                    this.over_dialog_visible = true;
+                    this.stopTimer();
+                }
+            },
+            getRealIndex(index, line_index) {
+                if (line_index === 0) {
+                    return index;
+                } else {
+                    return (6 - index - 1) + 6;
+                }
+            },
+            startGame(type, difficulty_0 = null, difficulty_1 = null) {
+                this.initGame();
+                this.start_dialog_visible = false;
+                this.game_type = type;
+                switch (type) {
+                    case 'HumanVsHuman':
+                        this.players[0].label = "Player 1";
+                        this.players[0].is_bot = false;
+                        this.players[1].label = "Player 2";
+                        this.players[1].is_bot = false;
+                        break;
+                    case 'HumanVsBot':
+                        this.players[0].label = "Bot";
+                        this.players[0].is_bot = true;
+                        this.players[0].difficulty = difficulty_0;
+                        this.players[1].label = "You";
+                        this.players[1].is_bot = false;
+                        break;
+                    case 'BotVsBot':
+                        this.players[0].label = "Bot 1";
+                        this.players[0].is_bot = true;
+                        this.players[0].difficulty = difficulty_0;
+                        this.players[1].label = "Bot 2";
+                        this.players[1].is_bot = true;
+                        this.players[1].difficulty = difficulty_1;
+                        break;
+                }
+                this.round = Math.random() < 0.5 ? 0 : 1;
+                this.startTimer();
+                this.nextRound();
+            },
+            handleLeaveGame(){
+                this.$confirm('Are you sure you want leave the game ?', 'Warning', {
+                    confirmButtonText: 'Yes',
+                    cancelButtonText: 'No',
+                    type: 'warning'
+                    }).then(() => {
+                        this.leaveGame();
+                    });
+            },
+            leaveGame(){
+                this.over_dialog_visible = false;
+                this.game_type = null;
+            },
+            restartGame(){
+                this.over_dialog_visible = false;
+                this.startGame(this.game_type, this.players[0].difficulty, this.players[1].difficulty);
+            },
+            initGame(){
+                this.round = null;
+                this.round_count = 0;
+                this.board = [4, 4, 4, 4, 4, 4,
+                    4, 4, 4, 4, 4, 4];
+                this.scores = [0, 0];
+                this.is_game_loading = false;
+                this.resetTimer();
+            },
+            startTimer() {
+                this.timer = setInterval(() => {
+                    this.time++;
+                }, 1000 );
+            },
+            stopTimer() {
+                clearInterval(this.timer);
+            },
+            resetTimer(){
+                this.time = 0;
+            }
+        },
+    }) 
+</script>
+
+</html>

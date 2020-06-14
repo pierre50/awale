@@ -1,0 +1,195 @@
+body {
+    font: normal 14px Verdana, Arial, sans-serif;
+    background: #ffe9b9;
+    margin: 0px;
+}
+.app-header {
+    text-align: center;
+    font-size: 54px;
+    padding: 20px;
+}
+.app-main{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+}
+.app-footer{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    padding: 20px;
+    font-size: 10px;
+}
+.menu-main{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+.menu-main__title{
+    font-size: 22px;
+    padding: 10px;
+}
+.menu-main__description{
+    width: 800px;
+    padding: 10px;
+    font-size: 14px;
+}
+.menu-main__button {
+    padding: 10px;
+}
+.game-main__help{
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+}
+.game-main__help > span {
+    cursor: pointer;
+    padding: 5px;
+}
+.game-main__help > span:nth-child(2){
+    justify-self: center;
+}
+.game-main__help > span:nth-child(3){
+    justify-self: right;
+}
+.game-main__line {
+    display: grid;
+    grid-gap: 10px;
+    grid-template-columns: 120px 620px;
+    width: fit-content;
+    padding: 5px;
+    margin: 0 auto;
+}
+.game-main__info{
+    text-align: center;
+    font-size: 22px;
+    padding: 10px;
+}
+.line-header {
+    width: 100%;
+    height: 100%;
+    background: #808080;
+    border-radius: 10px;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+.line-header__difficulty{
+    font-size: 10px;
+}
+.line-header__score{
+    font-size: 22px;
+}
+.line-main {
+    display: grid;
+    padding: 10px;
+    background: #d6a370;
+    border-radius: 10px;
+    grid-template-columns: 100px 100px 100px 100px 100px 100px;
+    grid-template-rows: 100px;
+}
+.line-main__column{
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .2s;
+}
+.clickable{
+    cursor: pointer;
+}
+.clickable:hover .column-circle{
+    background: rgba(0, 0, 0, 0.2);
+}
+.column-debug{
+    position: absolute;
+    top: 0;
+}
+.column-count {
+    position: absolute;
+    padding: 5px;
+    border-radius: 50%;
+    font-size: 28px;
+    color: white;
+    z-index: 3;
+}
+.column-circle{
+    transition: all .2s;
+    z-index: 1;
+    width: 80%;
+    position: absolute;
+    height: 80%;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 50%;
+}
+
+/*********************/
+/* DIALOG START GAME */
+/*********************/
+.el-dialog__header {
+    text-align: center;
+}
+.el-dialog__body {
+    padding-top: 10px!important;
+}
+.start-dialog-main{
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+}
+.start-dialog-main>.el-button {
+    margin: 5px;
+}
+.over-dialog-main > .el-button {
+    width: 100%;
+    margin: 5px;
+}
+.over-dialog-main__result {
+    text-align: center;
+    padding-bottom: 10px;
+}
+.help-dialog-main__citation{
+    text-align: center;
+    display: flex;    
+    justify-content: center;
+    font-style: italic;
+}
+
+/**********************************/
+/* BUTTON & BUTTON PRIMARY COLOR  */
+/**********************************/
+.el-button:active {
+    color: rgb(193, 147, 101)!important;
+    border-color: rgb(193, 147, 101)!important;
+    outline: 0!important;
+}
+.el-button:focus, .el-button:hover {
+    color: #D6A370!important;
+    border-color: rgb(243, 227, 212)!important;
+    background-color: rgb(251, 246, 241)!important;
+}
+.el-button--primary.is-active, .el-button--primary:active {
+    background: rgb(193, 147, 101)!important;
+    border-color: rgb(193, 147, 101)!important;
+    color: #fff!important;
+}
+.el-button--primary:focus, .el-button--primary:hover {
+    background: rgb(222, 181, 141)!important;
+    border-color: rgb(222, 181, 141)!important;
+    color: #fff!important;
+}
+.el-button--primary {
+    color: #fff!important;
+    background-color: #D6A370!important;
+    border-color: #D6A370!important;
+}
+.el-button--giant{
+    font-size: 22px!important;
+    width: 300px!important;
+}
